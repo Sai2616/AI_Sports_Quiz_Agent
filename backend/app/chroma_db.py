@@ -1,4 +1,6 @@
+import os
 import chromadb
+
 from app.embeddings import EmbeddingManager
 
 
@@ -9,9 +11,18 @@ class ChromaDBManager:
         and embedding model.
         """
 
-        # Create/Open persistent database
+        # Get backend project root directory
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+        # Chroma storage path
+        CHROMA_PATH = os.path.join(BASE_DIR, "chroma_storage")
+
+        # Create folder if it doesn't exist
+        os.makedirs(CHROMA_PATH, exist_ok=True)
+
+        # Initialize Persistent ChromaDB
         self.client = chromadb.PersistentClient(
-            path="../chroma_storage"
+            path=CHROMA_PATH
         )
 
         # Create/Open collection
@@ -25,27 +36,14 @@ class ChromaDBManager:
     def add_documents(self, chunks, ids, metadatas):
         """
         Store document chunks inside ChromaDB.
-
-        Parameters
-        ----------
-        chunks : List[str]
-            List of text chunks.
-
-        ids : List[str]
-            Unique IDs for every chunk.
-
-        metadatas : List[dict]
-            Metadata for every chunk.
         """
 
         embeddings = []
 
-        # Generate embedding for every chunk
         for chunk in chunks:
             vector = self.embedding_manager.generate_embedding(chunk)
             embeddings.append(vector)
 
-        # Store inside ChromaDB
         self.collection.add(
             documents=chunks,
             embeddings=embeddings,
@@ -58,25 +56,10 @@ class ChromaDBManager:
     def search(self, query, n_results=3):
         """
         Perform semantic search.
-
-        Parameters
-        ----------
-        query : str
-            User search query.
-
-        n_results : int
-            Number of results to return.
-
-        Returns
-        -------
-        dict
-            Search results.
         """
 
-        # Convert query into embedding
         query_embedding = self.embedding_manager.generate_embedding(query)
 
-        # Search vector database
         results = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results
@@ -87,7 +70,6 @@ class ChromaDBManager:
     def delete_collection(self):
         """
         Delete collection.
-        Useful while rebuilding database.
         """
 
         self.client.delete_collection("sports_articles")
@@ -96,7 +78,7 @@ class ChromaDBManager:
 
     def count_documents(self):
         """
-        Returns total stored chunks.
+        Return total stored chunks.
         """
 
         return self.collection.count()
